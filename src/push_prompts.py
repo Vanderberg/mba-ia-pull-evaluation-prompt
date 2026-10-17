@@ -41,9 +41,12 @@ import sys
 from dotenv import load_dotenv
 from langsmith import Client
 from langchain_core.prompts import ChatPromptTemplate
-from utils import load_yaml, check_env_vars, print_section_header
+from utils import load_yaml, check_env_vars, print_section_header, validate_prompt_structure
 
 load_dotenv()
+
+PROMPT_FILE = "prompts/bug_to_user_story_v2.yml"
+PROMPT_NAME = "bug_to_user_story_v2"
 
 
 def push_prompt_to_langsmith(prompt_name: str, prompt_data: dict) -> bool:
@@ -57,7 +60,37 @@ def push_prompt_to_langsmith(prompt_name: str, prompt_data: dict) -> bool:
     Returns:
         True se sucesso, False caso contrário
     """
-    ...
+    username = os.getenv("USERNAME_LANGSMITH_HUB")
+    full_name = f"{username}/{prompt_name}"
+
+    techniques = prompt_data.get("techniques_applied", [])
+    description = prompt_data.get("description", "")
+    if techniques:
+        description = f"{description}. Técnicas: {', '.join(techniques)}"
+
+    tags = list(dict.fromkeys(list(prompt_data.get("tags", [])) + list(techniques)))
+
+    try:
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", prompt_data["system_prompt"]),
+            ("user", prompt_data["user_prompt"]),
+        ])
+
+        client = Client()
+        url = client.push_prompt(
+            full_name,
+            object=prompt,
+            is_public=True,
+            description=description,
+            tags=tags,
+        )
+    except Exception as e:
+        print(f"❌ Erro ao fazer push de '{full_name}': {e}")
+        return False
+
+    print(f"✓ Prompt publicado: {full_name}")
+    print(f"  {url}")
+    return True
 
 
 def validate_prompt(prompt_data: dict) -> tuple[bool, list]:
@@ -70,12 +103,43 @@ def validate_prompt(prompt_data: dict) -> tuple[bool, list]:
     Returns:
         (is_valid, errors) - Tupla com status e lista de erros
     """
-    ...
+    is_valid, errors = validate_prompt_structure(prompt_data)
+
+    if not prompt_data.get("user_prompt", "").strip():
+        errors.append("user_prompt está vazio")
+
+    if "{bug_report}" not in prompt_data.get("user_prompt", ""):
+        errors.append("user_prompt deve conter a variável {bug_report}")
+
+    return (len(errors) == 0, errors)
 
 
 def main():
     """Função principal"""
-    ...
+    # Console do Windows usa cp1252 por padrão e quebra ao imprimir ✓/❌
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
+    print_section_header("PUSH DE PROMPTS PARA O LANGSMITH")
+
+    if not check_env_vars(["LANGSMITH_API_KEY", "USERNAME_LANGSMITH_HUB"]):
+        return 1
+
+    data = load_yaml(PROMPT_FILE)
+    if not data or PROMPT_NAME not in data:
+        print(f"❌ Chave '{PROMPT_NAME}' não encontrada em {PROMPT_FILE}")
+        return 1
+
+    prompt_data = data[PROMPT_NAME]
+
+    is_valid, errors = validate_prompt(prompt_data)
+    if not is_valid:
+        print("❌ Prompt inválido:")
+        for error in errors:
+            print(f"   - {error}")
+        return 1
+
+    return 0 if push_prompt_to_langsmith(PROMPT_NAME, prompt_data) else 1
 
 
 if __name__ == "__main__":
