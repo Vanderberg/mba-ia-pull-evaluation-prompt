@@ -16,20 +16,57 @@ O prompt otimizado está em [prompts/bug_to_user_story_v2.yml](prompts/bug_to_us
 - Exemplo 2 (médio): exportação de CSV com HTTP 504 → story + critérios + Critérios Técnicos + Contexto Técnico.
 - Exemplo 3 (complexo): módulo de notificações com 3 problemas → estrutura completa com `=== USER STORY PRINCIPAL ===`, critérios A/B/C, critérios técnicos, contexto, impacto e tasks.
 
+Trecho do Exemplo 1 no prompt:
+```text
+Entrada:
+O botão de "Esqueci minha senha" não faz nada quando clico nele na tela de login.
+
+Saída:
+Como um usuário que esqueceu a senha, eu quero recuperar o acesso à minha conta pela tela de login, para que eu consiga voltar a usar o sistema sem precisar de suporte.
+
+Critérios de Aceitação:
+- Dado que estou na tela de login
+- Quando clico em "Esqueci minha senha"
+- Então devo ser levado ao fluxo de recuperação de senha
+```
+
 ### 2. Role Prompting
 **Por que:** definir uma persona com experiência e foco ajusta o tom (profissional, empático, orientado a valor) e o nível de detalhe.
 
-**Como foi aplicado:** o system prompt começa com *"Você é um Product Manager sênior, com mais de 10 anos de experiência em produtos digitais e metodologias ágeis..."*, descrevendo a especialidade: transformar bugs em stories que desenvolvedores e QA executam sem ambiguidade.
+**Como foi aplicado:** o system prompt começa definindo a persona e a especialidade:
+```text
+Você é um Product Manager sênior, com mais de 10 anos de experiência em produtos digitais e metodologias ágeis. Sua especialidade é transformar relatos de bugs, muitas vezes confusos ou técnicos demais, em User Stories claras, completas e testáveis, que desenvolvedores e QA conseguem executar sem ambiguidade.
+```
 
 ### 3. Chain of Thought (interno)
 **Por que:** o bug precisa ser analisado (quem é afetado, comportamento atual versus esperado, valor, complexidade) antes de virar story. Mas o raciocínio exposto na resposta prejudicaria Clarity e Precision.
 
 **Como foi aplicado:** a seção "PROCESSO (raciocínio interno)" lista 5 passos de análise e instrui explicitamente que o raciocínio **não deve aparecer** na resposta. A saída contém só a User Story.
+```text
+# PROCESSO (raciocínio interno)
+Antes de escrever, pense passo a passo. Esse raciocínio é interno e NÃO deve aparecer na resposta.
+1. Quem é afetado? Escolha uma persona específica (...)
+2. O que o relato descreve? Separe o comportamento atual (o bug) do comportamento esperado.
+3. Qual é o valor para essa persona? (...)
+4. Qual é a complexidade? Conte problemas distintos, dados técnicos (...) e impacto citado.
+5. Que critérios de aceitação verificáveis cobrem cada um dos problemas do relato?
+```
 
 ### 4. Skeleton of Thought
 **Por que:** os bugs complexos têm vários problemas e a resposta precisa ser organizada e previsível.
 
-**Como foi aplicado:** o prompt define a estrutura de saída por nível de complexidade (simples, médio e complexo), com as seções, a ordem e a nomenclatura exatas (`=== CRITÉRIOS DE ACEITAÇÃO ===`, blocos `A.`, `B.`, `C.`, etc.).
+**Como foi aplicado:** o prompt define a estrutura de saída por nível de complexidade (simples, médio e complexo), com as seções, a ordem e a nomenclatura exatas. Para bugs complexos:
+```text
+=== USER STORY PRINCIPAL ===
+Título: [título curto]
+Descrição: Como um [persona], eu quero [ação], para que [benefício].
+=== CRITÉRIOS DE ACEITAÇÃO ===
+Um bloco por problema, identificados com A., B., C. (...)
+=== CRITÉRIOS TÉCNICOS ===
+=== CONTEXTO DO BUG ===
+=== IMPACTO ===
+=== TASKS TÉCNICAS ===
+```
 
 ### Regras e edge cases
 Além das técnicas, o prompt traz regras explícitas de comportamento e uma seção de casos especiais:
@@ -63,7 +100,6 @@ Observação sobre as iterações: o prompt v2 atingiu a meta na primeira avalia
 - Screenshots (em [docs/img/](docs/img/)):
   - [x] Dataset com os 15 exemplos ([print-dataset.png](docs/img/print-dataset.png))
   - [x] Experimento do v2 com as notas >= 0.8 ([print-avaliacao-v2.png](docs/img/print-avaliacao-v2.png))
-  - [ ] Resultado no terminal (`✅ STATUS: APROVADO`)
   - [x] Tracing detalhado de 3 exemplos: [app offline-first (complexo)](docs/img/print-trace-2.png), [carrinho sem estoque (médio, nota mais baixa)](docs/img/print-trace-3.png) e [lista de notificações Android](docs/img/print-trace-1.png)
 
 ### Comparação v1 × v2
